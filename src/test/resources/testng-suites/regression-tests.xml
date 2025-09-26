@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="SauceDemo Regression Test Suite" verbose="1" parallel="methods" thread-count="2">
+    
+    <parameter name="browser" value="chrome"/>
+    
+    <listeners>
+        <listener class-name="com.automation.framework.listeners.TestListener"/>
+    </listeners>
+    
+    <test name="SauceDemo Regression Tests">
+        <groups>
+            <run>
+                <include name="regression"/>
+            </run>
+        </groups>
+        <classes>
+            <class name="com.automation.tests.saucedemo"/>
+        </classes>
+    </test>
+    
+</suite>

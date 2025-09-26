@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.automation</groupId>
+    <artifactId>selenium-testng-framework</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>Selenium TestNG Automation Framework</name>
+    <description>A robust Selenium TestNG automation framework for web testing</description>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        
+        <!-- Dependency versions -->
+        <selenium.version>4.15.0</selenium.version>
+        <testng.version>7.8.0</testng.version>
+        <webdrivermanager.version>5.6.2</webdrivermanager.version>
+        <extentreports.version>2.41.2</extentreports.version>
+        <log4j.version>2.21.1</log4j.version>
+        <jackson.version>2.15.2</jackson.version>
+        <commons.io.version>2.11.0</commons.io.version>
+        <maven.surefire.version>3.1.2</maven.surefire.version>
+        <maven.compiler.version>3.11.0</maven.compiler.version>
+        
+        <!-- Test execution properties -->
+        <browser>chrome</browser>
+        <browser.headless>false</browser.headless>
+        <thread.count>1</thread.count>
+        <suite.file>testng.xml</suite.file>
+        
+        <!-- ExtentReports Configuration -->
+        <extent.reports.directory>${project.basedir}/test-output/extent-reports</extent.reports.directory>
+        <extent.reports.screenshots.directory>${project.basedir}/test-output/extent-reports/screenshots</extent.reports.screenshots.directory>
+        <extent.reports.config.file>src/test/resources/extent-config.xml</extent.reports.config.file>
+        <extent.reports.retention.days>30</extent.reports.retention.days>
+    </properties>
+
+    <dependencies>
+        <!-- Selenium WebDriver -->
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>${selenium.version}</version>
+        </dependency>
+
+        <!-- WebDriverManager -->
+        <dependency>
+            <groupId>io.github.bonigarcia</groupId>
+            <artifactId>webdrivermanager</artifactId>
+            <version>${webdrivermanager.version}</version>
+        </dependency>
+
+        <!-- TestNG -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>${testng.version}</version>
+        </dependency>
+
+        <!-- ExtentReports 2.0 - Classic version as requested -->
+        <dependency>
+            <groupId>com.relevantcodes</groupId>
+            <artifactId>extentreports</artifactId>
+            <version>2.41.2</version>
+        </dependency>
+        
+        <!-- Base64 encoding for screenshots -->
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.15</version>
+        </dependency>
+
+        <!-- Log4j2 -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <version>${log4j.version}</version>
+        </dependency>
+
+        <!-- Jackson for JSON parsing -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- Commons IO -->
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons.io.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Maven Compiler Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.version}</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Surefire Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven.surefire.version}</version>
+                <configuration>
+                    <!-- TestNG configuration -->
+                    <suiteXmlFiles>
+                        <suiteXmlFile>src/test/resources/testng-suites/${suite.file}</suiteXmlFile>
+                    </suiteXmlFiles>
+                    <parallel>methods</parallel>
+                    <threadCount>${thread.count}</threadCount>
+                    
+                    <!-- System properties for ExtentReports -->
+                    <systemProperties>
+                        <property>
+                            <name>extent.reports.directory</name>
+                            <value>${extent.reports.directory}</value>
+                        </property>
+                        <property>
+                            <name>extent.reports.screenshots.directory</name>
+                            <value>${extent.reports.screenshots.directory}</value>
+                        </property>
+                        <property>
+                            <name>extent.config.file</name>
+                            <value>${extent.reports.config.file}</value>
+                        </property>
+                    </systemProperties>
+                    
+                    <!-- Additional system properties -->
+                    <systemPropertyVariables>
+                        <browser>${browser}</browser>
+                        <browser.headless>${browser.headless}</browser.headless>
+                        <extent.reports.directory>${extent.reports.directory}</extent.reports.directory>
+                        <extent.screenshots.directory>${extent.reports.screenshots.directory}</extent.screenshots.directory>
+                    </systemPropertyVariables>
+                    
+                    <!-- Basic TestNG listener for now -->
+                    <properties>
+                        <property>
+                            <name>listener</name>
+                            <value>com.automation.framework.listeners.TestListener</value>
+                        </property>
+                        <property>
+                            <name>usedefaultlisteners</name>
+                            <value>false</value>
+                        </property>
+                    </properties>
+                </configuration>
+
+            </plugin>
+
+            <!-- Maven Clean Plugin - Clean ExtentReports -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.2.0</version>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>${extent.reports.directory}</directory>
+                            <includes>
+                                <include>**/*</include>
+                            </includes>
+                            <followSymlinks>false</followSymlinks>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!-- Test execution profiles -->
+        <profile>
+            <id>smoke</id>
+            <properties>
+                <suite.file>smoke-tests.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>regression</id>
+            <properties>
+                <suite.file>regression-tests.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>all</id>
+            <properties>
+                <suite.file>testng.xml</suite.file>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>parallel</id>
+            <properties>
+                <thread.count>3</thread.count>
+            </properties>
+        </profile>
+
+        <!-- Browser profiles -->
+        <profile>
+            <id>chrome</id>
+            <properties>
+                <browser>chrome</browser>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>firefox</id>
+            <properties>
+                <browser>firefox</browser>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>edge</id>
+            <properties>
+                <browser>edge</browser>
+            </properties>
+        </profile>
+        
+        <!-- ExtentReports profile -->
+        <profile>
+            <id>extent-reports</id>
+            <properties>
+                <extent.reports.enabled>true</extent.reports.enabled>
+            </properties>
+        </profile>
+        
+        <!-- ExtentReports with screenshots profile -->
+        <profile>
+            <id>extent-reports-with-screenshots</id>
+            <properties>
+                <extent.reports.enabled>true</extent.reports.enabled>
+                <extent.screenshots.enabled>true</extent.screenshots.enabled>
+            </properties>
+        </profile>
+    </profiles>
+</project>

@@ -1,0 +1,80 @@
+﻿{
+  "loginCredentials": {
+    "valid": [
+      {
+        "username": "standard_user",
+        "password": "secret_sauce",
+        "shouldPass": true,
+        "description": "Standard valid user"
+      },
+      {
+        "username": "performance_glitch_user",
+        "password": "secret_sauce",
+        "shouldPass": true,
+        "description": "Performance glitch user"
+      }
+    ],
+    "invalid": [
+      {
+        "username": "invalid_user",
+        "password": "wrong_password",
+        "shouldPass": false,
+        "description": "Invalid username and password"
+      },
+      {
+        "username": "standard_user",
+        "password": "wrong_password",
+        "shouldPass": false,
+        "description": "Valid username, invalid password"
+      },
+      {
+        "username": "",
+        "password": "",
+        "shouldPass": false,
+        "description": "Empty credentials"
+      },
+      {
+        "username": "locked_out_user",
+        "password": "secret_sauce",
+        "shouldPass": false,
+        "description": "Locked out user"
+      }
+    ],
+    "edge_cases": [
+      {
+        "username": "   ",
+        "password": "   ",
+        "shouldPass": false,
+        "description": "Whitespace credentials"
+      },
+      {
+        "username": "standard_user",
+        "password": "",
+        "shouldPass": false,
+        "description": "Valid username, empty password"
+      }
+    ]
+  },
+  "urls": {
+    "sauceDemo": "https://www.saucedemo.com/v1/index.html",
+    "sauceDemoV1": "https://www.saucedemo.com/v1/",
+    "inventory": "https://www.saucedemo.com/inventory.html"
+  },
+  "expectedMessages": {
+    "loginSuccess": "Products",
+    "invalidCredentials": "Username and password do not match any user in this service",
+    "lockedOutUser": "Sorry, this user has been locked out.",
+    "emptyUsername": "Username is required",
+    "emptyPassword": "Password is required"
+  },
+  "timeouts": {
+    "implicit": 10,
+    "explicit": 30,
+    "page_load": 60
+  },
+  "browsers": [
+    "chrome",
+    "firefox",
+    "edge"
+  ]
+}

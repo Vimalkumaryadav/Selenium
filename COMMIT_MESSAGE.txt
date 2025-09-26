@@ -1,0 +1,16 @@
+chore: Clean up project directory - remove unnecessary files
+
+- Removed troubleshooting and diagnostic documentation files
+- Removed AI prompt files not needed for development  
+- Removed redundant Maven installation utilities
+- Removed temporary Maven installation directory
+- Moved all removed files to backup-removed-files/ for safety
+- Updated .gitignore to exclude similar files in future
+- Preserved all essential documentation (README.md, SETUP.md)
+- Preserved all source code, tests, and configuration files
+- Preserved core development scripts (run-tests.bat, setup-env.*)
+
+Files removed: 13 files (7 .md, 5 .bat/.ps1, 1 directory)
+Project functionality verified with 'mvn validate' - BUILD SUCCESS
+
+See CLEANUP_SUMMARY.md for detailed list of changes.

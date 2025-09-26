@@ -1,0 +1,46 @@
+{
+    "folders": [
+        {
+            "name": "Selenium TestNG Framework",
+            "path": "."
+        }
+    ],
+    "settings": {
+        "java.configuration.updateBuildConfiguration": "automatic",
+        "java.compile.nullAnalysis.mode": "automatic",
+        "java.project.sourcePaths": [
+            "src/main/java",
+            "src/test/java"  
+        ],
+        "java.project.outputPath": "target/classes",
+        "java.project.referencedLibraries": [
+            "lib/**/*.jar"
+        ],
+        "files.exclude": {
+            "**/.classpath": true,
+            "**/.project": true, 
+            "**/.settings": true,
+            "**/.factorypath": true,
+            "**/target": false
+        },
+        "java.saveActions.organizeImports": true,
+        "java.sources.organizeImports.starThreshold": 99,
+        "java.sources.organizeImports.staticStarThreshold": 99,
+        "maven.executable.path": "mvn",
+        "maven.terminal.useJavaHome": true,
+        "java.configuration.maven.globalSettings": "",
+        "java.import.maven.enabled": true,
+        "java.completion.guessMethodArguments": "insertBestGuessedArguments",
+        "java.format.settings.url": "",
+        "java.format.settings.profile": ""
+    },
+    "extensions": {
+        "recommendations": [
+            "vscjava.vscode-java-pack",
+            "redhat.java",
+            "vscjava.vscode-maven", 
+            "vscjava.vscode-java-test",
+            "vscjava.vscode-java-debug"
+        ]
+    }
+}
