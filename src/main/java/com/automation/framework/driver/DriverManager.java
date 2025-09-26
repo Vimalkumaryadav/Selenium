@@ -82,7 +82,18 @@ public class DriverManager {
      */
     private static void setupChromeDriver() {
         try {
-            // Check for local driver first
+            // For CI environments, try WebDriverManager first
+            if (isCIEnvironment()) {
+                logger.info("CI environment detected, using WebDriverManager");
+                WebDriverManager chromeManager = WebDriverManager.chromedriver();
+                chromeManager.cachePath(config.getDriverCachePath());
+                chromeManager.timeout(60); // Longer timeout for CI
+                chromeManager.setup();
+                logger.info("Downloaded ChromeDriver using WebDriverManager for CI");
+                return;
+            }
+            
+            // Check for local driver first (for local development)
             String driverPath = DriverSetupUtils.getDriverPath("chromedriver.exe");
             if (driverPath != null) {
                 System.setProperty("webdriver.chrome.driver", driverPath);
@@ -105,13 +116,14 @@ public class DriverManager {
         }
 
         // Final fallback to system PATH
-        String systemChromeDriver = findDriverInPath("chromedriver.exe");
+        String driverName = System.getProperty("os.name").toLowerCase().contains("win") ? "chromedriver.exe" : "chromedriver";
+        String systemChromeDriver = findDriverInPath(driverName);
         if (systemChromeDriver != null) {
             System.setProperty("webdriver.chrome.driver", systemChromeDriver);
             logger.info("Using system ChromeDriver: {}", systemChromeDriver);
         } else {
             String errorMsg = "ChromeDriver not found. Please:\n" +
-                    "1. Place chromedriver.exe in " + config.getDriverLocalPath() + "\n" +
+                    "1. Place " + driverName + " in " + config.getDriverLocalPath() + "\n" +
                     "2. Or ensure Chrome is installed and chromedriver is in PATH\n" +
                     "3. Or enable auto-download with internet connection";
             logger.error(errorMsg);
@@ -147,6 +159,32 @@ public class DriverManager {
         options.addArguments("--remote-allow-origins=*");
         options.addArguments("--disable-blink-features=AutomationControlled");
         options.addArguments("--disable-ipc-flooding-protection");
+        
+        // Additional options for CI environments
+        if (isCIEnvironment()) {
+            options.addArguments("--disable-web-security");
+            options.addArguments("--disable-features=VizDisplayCompositor");
+            options.addArguments("--disable-software-rasterizer");
+            options.addArguments("--disable-background-networking");
+            options.addArguments("--disable-sync");
+            options.addArguments("--metrics-recording-only");
+            options.addArguments("--disable-default-apps");
+            options.addArguments("--mute-audio");
+            options.addArguments("--no-first-run");
+            options.addArguments("--safebrowsing-disable-auto-update");
+            options.addArguments("--ignore-ssl-errors=yes");
+            options.addArguments("--ignore-certificate-errors");
+            options.addArguments("--allow-running-insecure-content");
+            
+            // Force headless in CI if not explicitly disabled
+            if (!config.isBrowserHeadless()) {
+                String ciHeadless = System.getProperty("browser.headless", "false");
+                if ("true".equalsIgnoreCase(ciHeadless)) {
+                    options.addArguments("--headless=new");
+                    logger.info("Forcing headless mode in CI environment");
+                }
+            }
+        }
         
         // Remove automation indicators
         options.setExperimentalOption("useAutomationExtension", false);
@@ -472,5 +510,17 @@ public class DriverManager {
         } catch (Exception e) {
             logger.error("Error setting up offline drivers: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Check if running in CI environment
+     */
+    private static boolean isCIEnvironment() {
+        return System.getenv("CI") != null || 
+               System.getenv("GITHUB_ACTIONS") != null ||
+               System.getenv("JENKINS_URL") != null ||
+               System.getenv("TRAVIS") != null ||
+               System.getenv("CIRCLECI") != null ||
+               System.getenv("GITLAB_CI") != null;
     }
 }

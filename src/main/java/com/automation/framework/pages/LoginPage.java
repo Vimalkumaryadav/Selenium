@@ -25,7 +25,7 @@ public class LoginPage extends BasePage {
     private WebElement loginButton;
 
     public LoginPage navigateToSwagLabs() {
-        navigateTo("https://www.saucedemo.com/v1/");
+        navigateTo("https://www.saucedemo.com/v1/index.html");
         waitForPageLoad();
         return this;
     }
