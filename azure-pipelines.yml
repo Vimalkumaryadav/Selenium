@@ -3,20 +3,97 @@
 # Add steps that analyze code, save build artifacts, deploy, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/java
 
+# Pipeline trigger configuration
 trigger:
 - main
 
-pool:
-  vmImage: ubuntu-latest
+# Global variables
+variables:
+  MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
+  MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER)'
 
-steps:
-- task: Maven@3
-  inputs:
-    mavenPomFile: 'pom.xml'
-    mavenOptions: '-Xmx3072m'
-    javaHomeOption: 'JDKVersion'
-    jdkVersionOption: '1.11'
-    jdkArchitectureOption: 'x64'
-    publishJUnitResults: true
-    testResultsFiles: '**/surefire-reports/TEST-*.xml'
-    goals: 'package'
+# Pool configuration with parallelism considerations
+pool:
+  vmImage: 'ubuntu-latest'
+  demands: []
+
+# Jobs configuration with appropriate concurrency limits
+jobs:
+- job: Build
+  displayName: 'Build and Test Selenium Framework'
+  timeoutInMinutes: 60
+  strategy:
+    maxParallel: 1  # Set to 1 for free tier, increase based on granted parallelism
+  
+  steps:
+  # Cache Maven dependencies to improve build performance
+  - task: Cache@2
+    displayName: 'Cache Maven packages'
+    inputs:
+      key: 'maven | "$(Agent.OS)" | **/pom.xml'
+      restoreKeys: |
+        maven | "$(Agent.OS)"
+        maven
+      path: $(MAVEN_CACHE_FOLDER)
+  
+  # Setup Java environment
+  - task: JavaToolInstaller@0
+    displayName: 'Setup Java 11'
+    inputs:
+      versionSpec: '11'
+      jdkArchitectureOption: 'x64'
+      jdkSourceOption: 'PreInstalled'
+  
+  # Compile and package the application
+  - task: Maven@3
+    displayName: 'Maven Compile and Package'
+    inputs:
+      mavenPomFile: 'pom.xml'
+      mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+      javaHomeOption: 'JDKVersion'
+      jdkVersionOption: '1.11'
+      jdkArchitectureOption: 'x64'
+      goals: 'clean compile package'
+      options: '-DskipTests=true'
+  
+  # Run tests
+  - task: Maven@3
+    displayName: 'Run Selenium Tests'
+    inputs:
+      mavenPomFile: 'pom.xml'
+      mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+      javaHomeOption: 'JDKVersion'
+      jdkVersionOption: '1.11'
+      jdkArchitectureOption: 'x64'
+      publishJUnitResults: true
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+      goals: 'test'
+      options: '-Dmaven.test.failure.ignore=true'
+  
+  # Publish test results
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+      searchFolder: '$(System.DefaultWorkingDirectory)'
+      mergeTestResults: true
+      failTaskOnFailedTests: false
+  
+  # Publish HTML reports (Extent Reports)
+  - task: PublishHtmlReport@1
+    displayName: 'Publish Extent HTML Report'
+    condition: succeededOrFailed()
+    inputs:
+      reportDir: '$(System.DefaultWorkingDirectory)/test-output/extent-reports'
+      tabName: 'Extent Report'
+  
+  # Archive test artifacts
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish Test Artifacts'
+    condition: succeededOrFailed()
+    inputs:
+      targetPath: '$(System.DefaultWorkingDirectory)/test-output'
+      artifactName: 'test-reports'
+      publishLocation: 'pipeline'

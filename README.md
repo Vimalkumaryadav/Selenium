@@ -266,6 +266,59 @@ jobs:
           path: target/allure-results/
 ```
 
+## CI/CD Integration
+
+### Azure DevOps Pipeline
+
+The project includes a configured Azure DevOps pipeline (`azure-pipelines.yml`) with appropriate parallelism settings:
+
+#### 🚀 Current Configuration
+```yaml
+pool:
+  vmImage: 'ubuntu-latest'
+  demands: []
+
+jobs:
+- job: Build
+  timeoutInMinutes: 60
+  strategy:
+    maxParallel: 1  # Set for free tier, increase based on granted parallelism
+```
+
+#### 📋 Parallelism Setup Steps
+
+1. **Request Free Parallelism**: Visit [Azure Pipelines Parallelism Request](https://aka.ms/azpipelines-parallelism-request)
+2. **Complete the form** with your organization details
+3. **Wait for approval** (typically 2-3 business days)
+4. **Update pipeline** to increase `maxParallel` value
+
+#### 📚 Pipeline Documentation
+- `AZURE_PIPELINES_PARALLELISM_GUIDE.md` - Complete setup guide
+- `PIPELINE_CONFIGURATIONS.md` - Alternative configurations
+- `OPTIMIZED_PIPELINE_CONFIG.md` - Performance-optimized setup
+- `test-execution-template.yml` - Reusable pipeline template
+
+#### 🔧 Pipeline Features
+- **Maven dependency caching** for faster builds
+- **Parallel test execution** with TestNG
+- **ExtentReports publishing** to pipeline artifacts
+- **Test result integration** with Azure DevOps
+- **Screenshot archiving** for failed tests
+- **Multi-environment support** (smoke, regression, full suite)
+
+#### ⚡ Performance Optimization
+- **TestNG Parallel Settings**:
+  - Smoke Tests: Single-threaded (stability)
+  - Regression Tests: 2 threads (parallel methods)
+  - Full Suite: 1 thread (comprehensive)
+
+- **Pipeline Strategies**:
+  - Sequential job execution (free tier)
+  - Parallel job execution (paid tier)
+  - Matrix strategy for different test suites
+
+For detailed pipeline setup instructions, see [AZURE_PIPELINES_PARALLELISM_GUIDE.md](AZURE_PIPELINES_PARALLELISM_GUIDE.md).
+
 ## Best Practices
 
 1. **Page Object Model**: Keep page elements and actions separate from test logic
