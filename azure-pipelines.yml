@@ -5,22 +5,27 @@ trigger:
 - main
 
 variables:
-  # Maven optimization
-  MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
+  # Maven optimization for Windows
+  MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)\.m2\repository
   MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN'
-  # Test execution optimization
-  CHROME_BIN: '/usr/bin/google-chrome'
-  DISPLAY: ':99'
+  # Chrome path for Windows (will be detected dynamically)
+  CHROME_PATH: 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 
+# Self-hosted agent configuration - Selenium Pool (Windows)
 pool:
-  vmImage: 'ubuntu-latest'
+  name: 'Selenium Pool'
+  demands:
+  - agent.os -equals Windows_NT  # Specify Windows OS
+  - java -equals 17              # Ensure Java 17 is available
+  - maven                        # Ensure Maven is available
+  - chrome                       # Ensure Chrome is available
 
 jobs:
 - job: SeleniumTests
   displayName: 'Selenium Framework CI/CD'
   timeoutInMinutes: 45  # Reduced from 60 to minimize free tier consumption
   strategy:
-    maxParallel: 1  # Free tier compatible
+    maxParallel: 1  # Essential for free tier - DO NOT CHANGE
   
   steps:
   # OPTIMIZATION: Aggressive Maven dependency caching
@@ -33,43 +38,68 @@ jobs:
         maven | "$(Agent.OS)"
       path: $(MAVEN_CACHE_FOLDER)
   
-  # OPTIMIZATION: Use Java 17 (matches pom.xml) for better performance
-  - task: JavaToolInstaller@0
-    displayName: 'Setup Java 17'
-    inputs:
-      versionSpec: '17'
-      jdkArchitectureOption: 'x64'
-      jdkSourceOption: 'PreInstalled'
-  
-  # OPTIMIZATION: Fast browser setup
+  # Verify agent prerequisites (Windows)
   - script: |
-      # Quick Chrome installation
-      wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-      echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
-      sudo apt-get update -qq
-      sudo apt-get install -y google-chrome-stable
-      # Start virtual display
-      Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
-      sleep 2
-    displayName: 'Setup Browser Environment'
+      echo === Agent Environment Verification ===
+      echo Agent Name: $(Agent.Name)
+      echo Agent OS: $(Agent.OS)
+      echo Agent Version: $(Agent.Version)
+      
+      echo === Java Version ===
+      java -version
+      
+      echo === Maven Version ===
+      mvn -version
+      
+      echo === Chrome Version ===
+      if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
+        "C:\Program Files\Google\Chrome\Application\chrome.exe" --version
+      ) else if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" (
+        "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --version  
+      ) else (
+        echo Chrome not found in standard locations
+      )
+    displayName: 'Verify Agent Prerequisites'
   
-  # OPTIMIZATION: Combined build and test execution
+  # Setup browser environment for Windows self-hosted agent
+  - script: |
+      echo === Browser Environment Setup ===
+      
+      REM Check if Chrome is installed
+      if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
+        echo Chrome found in Program Files
+        set CHROME_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
+      ) else if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" (
+        echo Chrome found in Program Files (x86)
+        set CHROME_PATH=C:\Program Files (x86)\Google\Chrome\Application\chrome.exe
+      ) else (
+        echo Chrome not found in standard locations - please ensure Chrome is installed
+        exit /b 1
+      )
+      
+      echo Chrome executable: %CHROME_PATH%
+      "%CHROME_PATH%" --version
+      
+      echo Browser environment ready for Windows agent
+    displayName: 'Setup Browser Environment'
+    condition: eq(variables['Agent.OS'], 'Windows_NT')
+  
+  # Build and execute tests on self-hosted agent
   - task: Maven@3
     displayName: 'Build & Execute Tests'
     inputs:
       mavenPomFile: 'pom.xml'
-      mavenOptions: '-Xmx2048m $(MAVEN_OPTS)'  # Reduced memory for free tier
-      javaHomeOption: 'JDKVersion'
-      jdkVersionOption: '1.17'
-      jdkArchitectureOption: 'x64'
+      mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'  # Increased memory for self-hosted agent
+      javaHomeOption: 'Path'
+      jdkDirectory: '$(JAVA_HOME)'  # Use agent's JAVA_HOME
       publishJUnitResults: false
       goals: 'clean test'
       options: |
         -Dmaven.test.failure.ignore=true
         -Dbrowser=chrome
         -Dbrowser.headless=true
-        -Dwebdriver.chrome.driver=$(CHROME_BIN)
-        -DDISPLAY=$(DISPLAY)
+        -Dwebdriver.chrome.whitelistedIps=
+        -Dwebdriver.chrome.verboseLogging=false
         -Dlog4j2.configurationFile=src/main/resources/log4j2.xml
         -Dmaven.javadoc.skip=true
         -Dmaven.source.skip=true
