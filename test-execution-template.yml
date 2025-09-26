@@ -78,18 +78,19 @@ steps:
     testRunTitle: '${{ parameters.jobName }} Tests - $(Build.BuildNumber)'
     failTaskOnFailedTests: false
 
-# Publish Extent HTML reports
-- task: PublishHtmlReport@1
+# Publish Extent HTML reports as artifacts
+- task: PublishBuildArtifacts@1
   displayName: 'Publish ${{ parameters.jobName }} HTML Report'
   condition: succeededOrFailed()
   inputs:
-    reportDir: '$(System.DefaultWorkingDirectory)/test-output/extent-reports'
-    tabName: '${{ parameters.jobName }} Extent Report'
+    pathToPublish: '$(System.DefaultWorkingDirectory)/test-output/extent-reports'
+    artifactName: '${{ parameters.jobName }}-ExtentReports'
+    publishLocation: 'Container'
 
 # Publish code coverage results (if available)
 - task: PublishCodeCoverageResults@1
   displayName: 'Publish Code Coverage'
-  condition: succeededOrFailed()
+  condition: and(succeededOrFailed(), eq(variables['System.FileExists'], '$(System.DefaultWorkingDirectory)/target/site/jacoco/jacoco.xml'))
   inputs:
     codeCoverageTool: 'JaCoCo'
     summaryFileLocation: '$(System.DefaultWorkingDirectory)/target/site/jacoco/jacoco.xml'

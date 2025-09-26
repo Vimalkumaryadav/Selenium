@@ -1,5 +1,5 @@
-# Selenium TestNG Framework - Azure DevOps Pipeline
-# Optimized for Azure DevOps with built-in tasks only
+# Simplified Azure DevOps Pipeline for Selenium Tests
+# This configuration uses only built-in Azure DevOps tasks to avoid marketplace dependencies
 
 trigger:
 - main
@@ -16,10 +16,10 @@ jobs:
   displayName: 'Selenium Test Execution'
   timeoutInMinutes: 60
   strategy:
-    maxParallel: 1  # Set to 1 for free tier, increase based on granted parallelism
+    maxParallel: 1  # Set to 1 for free tier
   
   steps:
-  # Cache Maven dependencies to improve build performance
+  # Cache Maven dependencies
   - task: Cache@2
     displayName: 'Cache Maven packages'
     inputs:
@@ -29,7 +29,7 @@ jobs:
         maven
       path: $(MAVEN_CACHE_FOLDER)
   
-  # Setup Java environment
+  # Setup Java 11
   - task: JavaToolInstaller@0
     displayName: 'Use Java 11'
     inputs:
@@ -37,14 +37,14 @@ jobs:
       jdkArchitectureOption: 'x64'
       jdkSourceOption: 'PreInstalled'
   
-  # Install Chrome browser for Selenium tests
+  # Install Chrome browser
   - script: |
       sudo apt-get update
       sudo apt-get install -y google-chrome-stable
       google-chrome --version
     displayName: 'Install Chrome Browser'
   
-  # Setup virtual display for headless browser testing
+  # Setup virtual display for headless testing
   - script: |
       export DISPLAY=:99
       Xvfb :99 -screen 0 1920x1080x24 > /dev/null 2>&1 &
@@ -52,7 +52,7 @@ jobs:
       echo "Virtual display started on :99"
     displayName: 'Setup Virtual Display'
   
-  # Build the project
+  # Build project
   - task: Maven@3
     displayName: 'Build Project'
     inputs:
@@ -60,10 +60,10 @@ jobs:
       mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
       javaHomeOption: 'JDKVersion'
       jdkVersionOption: '1.11'
-      jdkArchitectureOption: 'x64'  
+      jdkArchitectureOption: 'x64'
       goals: 'clean compile'
   
-  # Execute Selenium tests
+  # Run tests
   - task: Maven@3
     displayName: 'Execute Selenium Tests'
     inputs:
@@ -81,6 +81,18 @@ jobs:
         -Dwebdriver.chrome.driver=/usr/bin/google-chrome
         -DDISPLAY=:99
     continueOnError: true
+  
+  # Publish test results
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results'
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+      searchFolder: '$(System.DefaultWorkingDirectory)'
+      mergeTestResults: true
+      failTaskOnFailedTests: false
+      testRunTitle: 'Selenium Tests - $(Build.BuildNumber)'
   
   # List generated files for debugging
   - script: |
@@ -100,19 +112,7 @@ jobs:
     displayName: 'List Generated Files'
     condition: succeededOrFailed()
   
-  # Publish test results to Azure DevOps
-  - task: PublishTestResults@2
-    displayName: 'Publish Test Results'
-    condition: succeededOrFailed()
-    inputs:
-      testResultsFormat: 'JUnit'
-      testResultsFiles: '**/surefire-reports/TEST-*.xml'
-      searchFolder: '$(System.DefaultWorkingDirectory)'
-      mergeTestResults: true
-      failTaskOnFailedTests: false
-      testRunTitle: 'Selenium Tests - $(Build.BuildNumber)'
-  
-  # Archive test reports (ExtentReports, screenshots, etc.)
+  # Archive test reports
   - task: PublishPipelineArtifact@1
     displayName: 'Archive Test Reports'
     condition: succeededOrFailed()
@@ -130,9 +130,9 @@ jobs:
       artifactName: 'surefire-reports'
       publishLocation: 'pipeline'
   
-  # Archive logs for troubleshooting (only on failure)
+  # Archive logs on failure
   - task: PublishPipelineArtifact@1
-    displayName: 'Archive Application Logs'
+    displayName: 'Archive Logs'
     condition: failed()
     inputs:
       targetPath: '$(System.DefaultWorkingDirectory)/logs'
