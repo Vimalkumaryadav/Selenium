@@ -1,3 +1,4 @@
+
 - task: Maven@4
   inputs:
     azureSubscription: 'Azure subscription 1(8cc67c5e-acf8-42df-adda-f562c77fa299)'
