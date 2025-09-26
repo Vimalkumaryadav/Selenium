@@ -12,11 +12,12 @@ variables:
   CHROME_PATH: 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 
 # Self-hosted agent configuration - Selenium Pool (Windows)
-# Relaxed demands to avoid capability detection issues
+# No capability demands - tools will be auto-installed
 pool:
   name: 'Selenium Pool'
   demands:
   - agent.os -equals Windows_NT  # Only require Windows OS
+  # Removed maven demand - will use Maven installer task instead
 
 jobs:
 - job: SeleniumTests
@@ -34,6 +35,50 @@ jobs:
       jdkArchitectureOption: 'x64'
       jdkSourceOption: 'PreInstalled'
     continueOnError: true  # Continue if Java 17 already available
+
+  # Install Maven automatically (bypasses NetworkService account issues)
+  - powershell: |
+      Write-Host "=== Maven Installation Check ==="
+      
+      # Check if Maven is in PATH for NetworkService account
+      try {
+          $mavenVersion = mvn -version 2>&1
+          Write-Host "Maven found: $mavenVersion"
+      } catch {
+          Write-Host "Maven not found in PATH for NetworkService account"
+          Write-Host "Installing Maven to accessible location..."
+          
+          # Download and install Maven to agent directory
+          $mavenUrl = "https://archive.apache.org/dist/maven/maven-3/3.9.6/binaries/apache-maven-3.9.6-bin.zip"
+          $agentDir = "C:\agent"
+          $mavenZip = "$agentDir\maven.zip"
+          $mavenDir = "$agentDir\maven"
+          
+          if (-not (Test-Path $mavenDir)) {
+              Write-Host "Downloading Maven..."
+              Invoke-WebRequest -Uri $mavenUrl -OutFile $mavenZip
+              
+              Write-Host "Extracting Maven..."
+              Expand-Archive -Path $mavenZip -DestinationPath $agentDir -Force
+              
+              # Rename to simpler path
+              $extractedDir = Get-ChildItem "$agentDir\apache-maven-*" | Select-Object -First 1
+              if ($extractedDir) {
+                  Rename-Item $extractedDir.FullName $mavenDir
+              }
+              
+              Remove-Item $mavenZip -Force
+              Write-Host "Maven installed to: $mavenDir"
+          }
+          
+          # Add Maven to PATH for this session
+          $env:PATH = "$mavenDir\bin;$env:PATH"
+          Write-Host "Added Maven to PATH: $mavenDir\bin"
+          
+          # Verify installation
+          & "$mavenDir\bin\mvn.cmd" -version
+      }
+    displayName: 'Setup Maven for NetworkService Account'
 
   # OPTIMIZATION: Aggressive Maven dependency caching
   - task: Cache@2
@@ -127,20 +172,47 @@ jobs:
     displayName: 'Setup Browser Environment'
     condition: eq(variables['Agent.OS'], 'Windows_NT')
   
-  # Build and execute tests with enhanced error handling
-  - task: Maven@3
-    displayName: 'Build & Execute Tests'
-    inputs:
-      mavenPomFile: 'pom.xml'
-      mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
-      javaHomeOption: 'JDKVersion'  # Use JDK version instead of path
-      jdkVersionOption: '1.17'      # Specify Java 17
-      publishJUnitResults: false
-      goals: 'clean test'
-      options: |
-        -Dmaven.test.failure.ignore=true
-        -Dbrowser=chrome
-        -Dbrowser.headless=true
+  # Build and execute tests using installed Maven
+  - powershell: |
+      Write-Host "=== Maven Build & Test Execution ==="
+      
+      # Set up Maven path
+      $mavenPath = "C:\agent\maven\bin\mvn.cmd"
+      if (-not (Test-Path $mavenPath)) {
+          # Fallback to system Maven if available
+          $mavenPath = "mvn"
+      }
+      
+      Write-Host "Using Maven: $mavenPath"
+      
+      # Set up environment variables
+      $env:MAVEN_OPTS = "-Xmx3072m -Dmaven.repo.local=$(Pipeline.Workspace)\.m2\repository"
+      
+      Write-Host "MAVEN_OPTS: $env:MAVEN_OPTS"
+      Write-Host "Starting Maven build..."
+      
+      # Run Maven with explicit command
+      if ($mavenPath -eq "mvn") {
+          mvn clean test `
+            -Dmaven.test.failure.ignore=true `
+            -Dbrowser=chrome `
+            -Dbrowser.headless=true `
+            -Dwebdriver.chrome.whitelistedIps="" `
+            -Dwebdriver.chrome.verboseLogging=false
+      } else {
+          & $mavenPath clean test `
+            -Dmaven.test.failure.ignore=true `
+            -Dbrowser=chrome `
+            -Dbrowser.headless=true `
+            -Dwebdriver.chrome.whitelistedIps="" `
+            -Dwebdriver.chrome.verboseLogging=false
+      }
+      
+      Write-Host "Maven execution completed with exit code: $LASTEXITCODE"
+    displayName: 'Maven Build & Test (NetworkService Compatible)'
+    env:
+      JAVA_HOME: $(JAVA_HOME)
+      PATH: C:\agent\maven\bin;$(PATH)
         -Dwebdriver.chrome.whitelistedIps=
         -Dwebdriver.chrome.verboseLogging=false
         -Dlog4j2.configurationFile=src/main/resources/log4j2.xml
