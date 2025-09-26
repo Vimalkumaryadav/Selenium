@@ -12,13 +12,11 @@ variables:
   CHROME_PATH: 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 
 # Self-hosted agent configuration - Selenium Pool (Windows)
+# Relaxed demands to avoid capability detection issues
 pool:
   name: 'Selenium Pool'
   demands:
-  - agent.os -equals Windows_NT  # Specify Windows OS
-  - java -equals 17              # Ensure Java 17 is available
-  - maven                        # Ensure Maven is available
-  - chrome                       # Ensure Chrome is available
+  - agent.os -equals Windows_NT  # Only require Windows OS
 
 jobs:
 - job: SeleniumTests
@@ -28,6 +26,15 @@ jobs:
     maxParallel: 1  # Essential for free tier - DO NOT CHANGE
   
   steps:
+  # Ensure Java 17 is available (auto-detect or install)
+  - task: JavaToolInstaller@0
+    displayName: 'Setup Java 17'
+    inputs:
+      versionSpec: '17'
+      jdkArchitectureOption: 'x64'
+      jdkSourceOption: 'PreInstalled'
+    continueOnError: true  # Continue if Java 17 already available
+
   # OPTIMIZATION: Aggressive Maven dependency caching
   - task: Cache@2
     displayName: 'Cache Maven Dependencies'
@@ -38,28 +45,64 @@ jobs:
         maven | "$(Agent.OS)"
       path: $(MAVEN_CACHE_FOLDER)
   
-  # Verify agent prerequisites (Windows)
+  # Enhanced agent prerequisites verification with error handling
   - script: |
       echo === Agent Environment Verification ===
       echo Agent Name: $(Agent.Name)
       echo Agent OS: $(Agent.OS)
       echo Agent Version: $(Agent.Version)
+      echo User Context: %USERNAME%
+      echo.
       
-      echo === Java Version ===
-      java -version
+      echo === Java Detection ===
+      java -version 2>nul && (
+        echo Java found successfully
+        echo JAVA_HOME: %JAVA_HOME%
+      ) || (
+        echo WARNING: Java not found in PATH
+        echo Checking common Java locations...
+        if exist "C:\Program Files\Eclipse Adoptium" (
+          dir "C:\Program Files\Eclipse Adoptium" /b
+        )
+        if exist "C:\Program Files\Java" (
+          dir "C:\Program Files\Java" /b
+        )
+      )
+      echo.
       
-      echo === Maven Version ===
-      mvn -version
+      echo === Maven Detection ===
+      mvn -version 2>nul && (
+        echo Maven found successfully
+      ) || (
+        echo WARNING: Maven not found in PATH
+        echo Checking Chocolatey Maven...
+        if exist "C:\ProgramData\chocolatey\lib\maven" (
+          dir "C:\ProgramData\chocolatey\lib\maven" /b
+        )
+        echo Checking common Maven locations...
+        if exist "C:\Program Files\Apache" (
+          dir "C:\Program Files\Apache" /b
+        )
+      )
+      echo.
       
-      echo === Chrome Version ===
+      echo === Chrome Detection ===
       if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
         "C:\Program Files\Google\Chrome\Application\chrome.exe" --version
+        echo Chrome found in Program Files
       ) else if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" (
-        "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --version  
+        "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --version
+        echo Chrome found in Program Files (x86)
       ) else (
-        echo Chrome not found in standard locations
+        echo WARNING: Chrome not found in standard locations
+        echo Please ensure Chrome is installed
       )
-    displayName: 'Verify Agent Prerequisites'
+      
+      echo === PATH Analysis ===
+      echo Relevant PATH entries:
+      echo %PATH% | findstr /i "java maven chrome"
+    displayName: 'Enhanced Prerequisites Verification'
+    continueOnError: true
   
   # Setup browser environment for Windows self-hosted agent
   - script: |
@@ -84,14 +127,14 @@ jobs:
     displayName: 'Setup Browser Environment'
     condition: eq(variables['Agent.OS'], 'Windows_NT')
   
-  # Build and execute tests on self-hosted agent
+  # Build and execute tests with enhanced error handling
   - task: Maven@3
     displayName: 'Build & Execute Tests'
     inputs:
       mavenPomFile: 'pom.xml'
-      mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'  # Increased memory for self-hosted agent
-      javaHomeOption: 'Path'
-      jdkDirectory: '$(JAVA_HOME)'  # Use agent's JAVA_HOME
+      mavenOptions: '-Xmx3072m $(MAVEN_OPTS)'
+      javaHomeOption: 'JDKVersion'  # Use JDK version instead of path
+      jdkVersionOption: '1.17'      # Specify Java 17
       publishJUnitResults: false
       goals: 'clean test'
       options: |
