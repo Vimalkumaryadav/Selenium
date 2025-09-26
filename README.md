@@ -165,6 +165,25 @@ run-tests-with-extent-reports.bat
 
 For detailed usage guide, see [EXTENTREPORTS_2.0_GUIDE.md](EXTENTREPORTS_2.0_GUIDE.md)
 
+### 🎯 Accessing Reports in GitHub Actions
+
+When tests run in GitHub Actions CI/CD pipeline, reports are automatically generated and made available in multiple ways:
+
+#### 📁 GitHub Actions Artifacts (Primary Method)
+1. Go to **Actions** tab in your repository
+2. Click on the latest workflow run
+3. Scroll to **Artifacts** section
+4. Download:
+   - `extent-reports-chrome-[run_number]` - Main HTML reports with screenshots
+   - `surefire-reports-[run_number]` - Maven test reports
+
+#### 🌐 GitHub Pages (Optional - for web access)
+Enable GitHub Pages in repository settings for direct web access:
+- Reports URL: `https://[username].github.io/[repository]/`
+- Automatically updated after each main branch run
+
+📋 **For complete guide:** See [TEST_REPORTS_ACCESS_GUIDE.md](TEST_REPORTS_ACCESS_GUIDE.md)
+
 ### Screenshots
 Screenshots are automatically captured on test failures and stored in `test-output/screenshots/`.
 
