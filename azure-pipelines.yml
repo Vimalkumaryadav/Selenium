@@ -1,13 +1,197 @@
 
-- task: Maven@4
-  inputs:
-    azureSubscription: 'Azure subscription 1(8cc67c5e-acf8-42df-adda-f562c77fa299)'
-    mavenPomFile: 'pom.xml'
-    goals: 'clean install'
-    publishJUnitResults: true
-    testResultsFiles: '**/surefire-reports/TEST-*.xml'
-    javaHomeOption: 'JDKVersion'
-    mavenVersionOption: 'Default'
-    mavenAuthenticateFeed: false
-    effectivePomSkip: false
-    sonarQubeRunAnalysis: false
+# Selenium TestNG Framework - Test Execution and Reporting Pipeline
+# Comprehensive pipeline for Selenium test automation
+
+trigger:
+- main
+- develop
+- feature/*
+
+pr:
+- main
+- develop
+
+variables:
+  # Environment configuration
+  CI: true
+  AZURE_PIPELINES: true
+  
+  # Maven configuration
+  MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)\.m2\repository
+  MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Xmx2048m'
+  
+  # Test execution parameters
+  BROWSER_TYPE: 'chrome'
+  HEADLESS_MODE: 'true'
+  DRIVER_AUTO_DOWNLOAD: 'true'
+  WEBDRIVERMANAGER_TIMEOUT: '60'
+
+# Self-hosted agent pool configuration
+pool:
+  name: 'Selenium Pool'
+  demands:
+  - agent.os -equals Windows_NT
+
+jobs:
+- job: TestExecution
+  displayName: 'Test Execution and Reporting'
+  timeoutInMinutes: 60
+  strategy:
+    matrix:
+      Chrome:
+        browserType: 'chrome'
+    maxParallel: 1
+  
+  steps:
+  # Checkout Repository
+  - checkout: self
+    displayName: 'Checkout Repository'
+    
+  # Environment validation and setup
+  - script: |
+      echo === Test Execution Environment Setup ===
+      echo Agent: $(Agent.Name)
+      echo OS: $(Agent.OS)
+      echo Build ID: $(Build.BuildId)
+      echo Source Branch: $(Build.SourceBranchName)
+      echo Browser: $(browserType)
+      echo.
+      
+      echo === Dependency Verification ===
+      java -version 2>nul && (
+        echo ✅ Java Available
+        java -version
+      ) || echo ❌ Java Missing
+      
+      mvn -version 2>nul && (
+        echo ✅ Maven Available
+        mvn -version
+      ) || echo ❌ Maven Missing
+      
+      REM Chrome verification with detailed output
+      if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
+        echo ✅ Chrome Available
+        "C:\Program Files\Google\Chrome\Application\chrome.exe" --version
+        set CHROME_BIN=C:\Program Files\Google\Chrome\Application\chrome.exe
+      ) else if exist "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" (
+        echo ✅ Chrome Available ^(x86^)
+        "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --version
+        set CHROME_BIN=C:\Program Files (x86)\Google\Chrome\Application\chrome.exe
+      ) else (
+        echo ❌ Chrome Missing
+      )
+      
+      echo === Environment Variables ===
+      echo CI: $(CI)
+      echo AZURE_PIPELINES: $(AZURE_PIPELINES)
+      echo BROWSER_TYPE: $(BROWSER_TYPE)
+      echo HEADLESS_MODE: $(HEADLESS_MODE)
+    displayName: 'Environment Setup and Validation'
+
+  # Cache Maven dependencies
+  - task: Cache@2
+    displayName: 'Cache Maven Dependencies'
+    inputs:
+      key: 'maven | "$(Agent.OS)" | **/pom.xml'
+      restoreKeys: |
+        maven | "$(Agent.OS)" | **/pom.xml
+        maven | "$(Agent.OS)"
+      path: $(MAVEN_CACHE_FOLDER)
+
+  # Clean previous test results
+  - script: |
+      echo === Cleaning Previous Test Results ===
+      if exist "test-output" rmdir /s /q "test-output"
+      if exist "target\surefire-reports" rmdir /s /q "target\surefire-reports"
+      if exist "allure-results" rmdir /s /q "allure-results"
+      echo Previous test results cleaned
+    displayName: 'Clean Previous Test Results'
+
+  # Run All Test Suites
+  - task: Maven@3
+    displayName: 'Run Selenium Tests'
+    timeoutInMinutes: 45
+    inputs:
+      mavenPomFile: 'pom.xml'
+      goals: 'clean test'
+      options: |
+        -Dbrowser=$(browserType)
+        -Dbrowser.headless=$(HEADLESS_MODE)
+        -Ddriver.auto.download=$(DRIVER_AUTO_DOWNLOAD)
+        -Dwebdrivermanager.timeout=$(WEBDRIVERMANAGER_TIMEOUT)
+      publishJUnitResults: false
+      javaHomeOption: 'JDKVersion'
+      jdkVersionOption: '1.17'
+      mavenVersionOption: 'Default'
+      mavenOptions: '$(MAVEN_OPTS)'
+    continueOnError: true
+
+  # Display Test Results Summary
+  - script: |
+      echo === Test Results Summary ===
+      if exist "target\surefire-reports" (
+        echo Surefire reports found:
+        dir target\surefire-reports\*.xml /b 2>nul | find /c ".xml"
+        
+        echo Analyzing test results...
+        findstr /c:"failures=\"0\"" target\surefire-reports\*.xml >nul 2>&1 && echo ✅ Some tests passed
+        findstr /c:"failures=" target\surefire-reports\*.xml | findstr /v "failures=\"0\"" >nul 2>&1 && echo ❌ Some tests failed
+      )
+      
+      if exist "test-output\extent-reports" (
+        echo ExtentReports found:
+        dir test-output\extent-reports /b
+      )
+    displayName: 'Display Test Results Summary'
+    condition: always()
+
+  # Upload ExtentReports
+  - task: PublishBuildArtifacts@1
+    displayName: 'Upload ExtentReports'
+    inputs:
+      pathToPublish: 'test-output/extent-reports'
+      artifactName: 'extent-reports-$(browserType)-$(Build.BuildId)'
+      publishLocation: 'Container'
+    condition: always()
+    continueOnError: true
+
+  # Upload Surefire Reports
+  - task: PublishBuildArtifacts@1
+    displayName: 'Upload Surefire Reports'
+    inputs:
+      pathToPublish: 'target/surefire-reports'
+      artifactName: 'surefire-reports-$(Build.BuildId)'
+      publishLocation: 'Container'
+    condition: always()
+
+  # Publish Test Results to Azure DevOps
+  - task: PublishTestResults@2
+    displayName: 'Publish Test Results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/target/surefire-reports/TEST-*.xml'
+      failTaskOnFailedTests: false
+      testRunTitle: 'Selenium Tests - $(browserType) - Build $(Build.BuildId)'
+      buildPlatform: 'Windows'
+      buildConfiguration: 'Release'
+    condition: always()
+
+  # Upload Screenshots on Failure
+  - task: PublishBuildArtifacts@1
+    displayName: 'Upload Screenshots on Failure'
+    inputs:
+      pathToPublish: 'test-output/extent-reports/screenshots'
+      artifactName: 'failure-screenshots-$(Build.BuildId)'
+      publishLocation: 'Container'
+    condition: failed()
+    continueOnError: true
+
+  # Clean up workspace
+  - script: |
+      echo === Cleanup Temporary Files ===
+      if exist "target\screenshots" rmdir /s /q "target\screenshots"
+      if exist "target\temp" rmdir /s /q "target\temp"
+      echo Cleanup completed
+    displayName: 'Cleanup Temporary Files'
+    condition: always()
+    continueOnError: true
